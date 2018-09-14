@@ -23,7 +23,6 @@ def parse_pdb(pdbfile):
 						liste_atome.append(dico_atome)
 						dico_atome={}
 						dico_atome[line[12:16].strip()]=dico_coord
-	print(liste_atome)
 	liste_atome.append(dico_atome)							
 	return liste_atome
 
@@ -34,13 +33,15 @@ def calcul_distance(coord1, coord2):
 def calcul_energie(residu1, residu2):
 	q1 = 0.42 
 	q2 = 0.20
-	rON = calcul_distance(residu1['O'], residu2['N'])
-	rCH = calcul_distance(residu1['C'], residu2['H'])
-	rOH = calcul_distance(residu1['O'], residu2['H'])
-	rCN = calcul_distance(residu1['C'], residu2['N'])
-	E = q1*q2*(1/rON + 1/rCH - 1/rOH - 1/rCN) * 332
+	if 'H' not in residu2 or 'H' not in residu1:
+		E = 0
+	else:
+		rON = calcul_distance(residu1['O'], residu2['N'])
+		rCH = calcul_distance(residu1['C'], residu2['H'])
+		rOH = calcul_distance(residu1['O'], residu2['H'])
+		rCN = calcul_distance(residu1['C'], residu2['N'])
+		E = q1*q2*(1/rON + 1/rCH - 1/rOH - 1/rCN) * 332
 	return E
-
 
 def calcul_helices(liste_atome):
 	helice_alpha={}
@@ -55,9 +56,6 @@ def calcul_helices(liste_atome):
 				if k == 3 : helice_310[i] = E
 				elif k == 4 : helice_alpha[i] = E 
 				elif k == 5 : helice_pi[i] = E
-	for key in helice_alpha:
-		print(key + 1, helice_alpha[key])	
-
 #liste=[len(helice_alpha), len(helice_310), len(helice_pi)]
 	#MAX = max(liste)
 	#for i in range(MAX): 
@@ -66,18 +64,43 @@ def calcul_helices(liste_atome):
 					
 	return helice_310
 
-def calcul_feuillet(liste_atome):
-	for i in range(1, len(liste_atome)):
-		for j in range (i+2, len(liste_atome)):
+def calcul_feuillet_parallele(liste_atome):
+	Energie_feuillet_parallele={}
+	Energie_feuillet_antiparallele={}
+	for i in range(1, len(liste_atome)-1):
+		for j in range (i+2, len(liste_atome)-1):
+			#feuillets parallèles
 			P1 = calcul_energie(liste_atome[i-1], liste_atome[j])
 			P2 = calcul_energie(liste_atome[j], liste_atome[i+1])
-			if P1 and P2 < -0.5 : 
-				for k in 
+			P3 = calcul_energie(liste_atome[j-1], liste_atome[i])
+			P4 = calcul_energie(liste_atome[i], liste_atome[j+1])
+			#feuillets anti-parallèles
+			k = len(liste_atome) - i -1
+			A1 = calcul_energie(liste_atome[i], liste_atome[k])
+			A2 = calcul_energie(liste_atome[k], liste_atome[i])
+			A3 = calcul_energie(liste_atome[i-1], liste_atome[k+1])
+			A4 = calcul_energie(liste_atome[k+1], liste_atome[i-1])
+			if (P1 < -0.5 and P2 < -0.5) or (P3 < -0.5 and P4 < -0.5):
+			#	print(i,j, liste_atome[88])
+			#	for k in (i, len(liste_atome)-1):
+			#		for w in (j, len(liste_atome)):
+			#			P1 = calcul_energie(liste_atome[k-1], liste_atome[w])
+			#			P2 = calcul_energie(liste_atome[w], liste_atome[k+1])
+			#			if P1 and P2 < -0.5:
+				Energie_feuillet_parallele[i+1]=j+1
+				continue
+			if A1 < -0.5 and A2 < -0.5 or A3 < -0.5 and A4 < -0.5:
+				Energie_feuillet_antiparallele[i]=k
+				continue
+	print(Energie_feuillet_parallele)
+	print(Energie_feuillet_antiparallele)
+	return Energie_feuillet_parallele
 
 
 liste=[]
 liste=parse_pdb("1bta.pdb")
-Energie=calcul_helices(liste)
+Energie_helice=calcul_helices(liste)
+Energie_feuillet = calcul_feuillet_parallele(liste)
 
 
 
