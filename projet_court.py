@@ -1,8 +1,9 @@
 #dssp -i 1bta.pdb
 
 import math
+import string
 
-def parse_pdb(pdbfile):
+def analyse_pdb(pdbfile):
 	dico_residu={}
 	Tout_atome={} 
 	#num_residu=1
@@ -40,7 +41,7 @@ def calcul_distance(coord1, coord2):
 def calcul_energie(residu1, residu2):
 	q1 = 0.42 
 	q2 = 0.20
-	if 'H' not in residu2 or 'H' not in residu1:
+	if 'H' not in residu2:
 		E = 0
 	else:
 		rON = calcul_distance(residu1['O'], residu2['N'])
@@ -50,14 +51,24 @@ def calcul_energie(residu1, residu2):
 		E = q1*q2*(1/rON + 1/rCH - 1/rOH - 1/rCN) * 332
 	return E
 
-def liaisons_consecutives(dico_liaisons):
-	liaisons_consecutives={}
+def structures_consecutives(dico_liaisons):
+	structures_consecutives={}
 	for key in dico_liaisons:
 		if key + 1 in dico_liaisons or key - 1 in dico_liaisons:
-			liaisons_consecutives[key]=dico_liaisons[key]
-	return liaisons_consecutives
-			
+			structures_consecutives[key]=dico_liaisons[key]
+	return structures_consecutives
 
+def liste_helices(dico_liaisons):
+	helices={}
+	for key in dico_liaisons:
+		if key in dico_liaisons and key + 1 in dico_liaisons:
+			helices[key]=1
+			helices[key+1]=1
+			helices[key+2]=1
+			helices[key+3]=1
+			helices[key+4]=1
+	return helices
+			
 def calcul_helices(liste_atome):
 	liaisons_alpha={}
 	liaisons_310={}
@@ -69,20 +80,18 @@ def calcul_helices(liste_atome):
 	for k in [3, 4, 5]: 
 		for key in liste_atome:
 			if key + k in liste_atome:
-				if liste_atome[key+k]['C']['nom_residu']=='PRO':
-					E = 0
-				else :  
-					E = calcul_energie(liste_atome[key], liste_atome[key+k])
-					if E < -0.5 :
-						if k == 3 : liaisons_310[key] = E
-						elif k == 4 : liaisons_alpha[key] = E 
-						elif k == 5 : liaisons_pi[key] = E
-	helices_alpha=liaisons_consecutives(liaisons_alpha)
-	helices_310=liaisons_consecutives(liaisons_310)
-	helices_pi=liaisons_consecutives(liaisons_pi)
+				E = calcul_energie(liste_atome[key], liste_atome[key+k])
+				if E < -0.5 :
+					if k == 3 : liaisons_310[key] = E
+					elif k == 4 : liaisons_alpha[key] = E 
+					elif k == 5 : liaisons_pi[key] = E
+	helices_alpha=liste_helices(liaisons_alpha)
+	helices_310=liste_helices(liaisons_310)
+	helices_pi=liste_helices(liaisons_pi)
 	helices_totales['helices_pi']=helices_pi
 	helices_totales['helices_310']=helices_310
 	helices_totales['helices_alpha']=helices_alpha
+	print(helices_alpha)
 	return helices_totales
 
 
@@ -105,45 +114,60 @@ def calcul_feuillet(liste_atome):
 			A2 = calcul_energie(liste_atome[j], liste_atome[i])
 			A3 = calcul_energie(liste_atome[i-1], liste_atome[j+1])
 			A4 = calcul_energie(liste_atome[i+1], liste_atome[j-1])
-
 			if (P1 < -0.5 and P2 < -0.5) or (P3 < -0.5 and P4 < -0.5):	
 				Energie_feuillet_parallele[i]=j
 				continue
 			if (A1 < -0.5 and A2 < -0.5) or (A3 < -0.5 and A4 < -0.5):
 				Energie_feuillet_antiparallele[i]=j
-	feuillets_paralleles=liaisons_consecutives(Energie_feuillet_parallele)
-	feuillets_antiparalleles=liaisons_consecutives(Energie_feuillet_antiparallele)
-	feuillet_total['feuillets_paralleles']=feuillets_paralleles
-	feuillet_total['feuillets_antiparalleles']=feuillets_antiparalleles
-	return feuillets_paralleles
+	feuillets_paralleles=structures_consecutives(Energie_feuillet_parallele)
+	feuillets_antiparalleles=structures_consecutives(Energie_feuillet_antiparallele)
+	feuillets_total['feuillets_paralleles']=feuillets_paralleles
+	feuillets_total['feuillets_antiparalleles']=feuillets_antiparalleles
+	print(feuillets_total['feuillets_paralleles'])
+	return feuillets_total
 
 def affichage(liste_atome, helices_totales, feuillets):
-	Helices=['helices_alpha', 'helices_310', 'helices_pi']
-	feuillets=['
-	print ('RESIDUE', 'AA', 'STRUCTURE', 'BP1')
+	Structures=['helices_alpha', 'helices_310', 'helices_pi', 'feuillets_paralleles']
+	print ('RESIDUE', ' AA', '    STRUCTURE', 'BP1', 'BP2')
+	liste_lower = list(string.ascii_lowercase)
+	liste_upper = list(string.ascii_uppercase)
+	compteur=0
 	for key in liste_atome:
-		for type_helice in Helices:
-			if key in helices_totales[type_helice]:
-				if type_helice=='helices_alpha':
-					print(key, liste_atome[key]['C']['nom_residu'], "      H")
-				elif type_helice=='helices_310':
-					print(key, liste_atome[key]['C']['nom_residu'], "      G")
-				elif type_helice=='helices_pi':
-					print(key, liste_atome[key]['C']['nom_residu'], "      I")
-		for 
-			elif key in feuillets:
-				print(key, liste_atome[key]['C']['nom_residu'], "       E")
-			elif key not in helices_totales[type_helice] and key not in feuillets:
-				print(key, liste_atome[key]['C']['nom_residu'], "      ")
-			break
-					
-	return 0
-	
-
+		if key in helices_totales['helices_alpha']:
+			print(key, "      ", liste_atome[key]['C']['nom_residu'], "     H")
+		elif key in helices_totales['helices_310']:
+			print(key, "      ", liste_atome[key]['C']['nom_residu'], "     G")
+		elif key in helices_totales['helices_pi']:
+			print(key, "      ", liste_atome[key]['C']['nom_residu'], "     I")
+		elif key in feuillets['feuillets_paralleles']:
+			if key - 1 in feuillets['feuillets_paralleles'] and compteur==0 and key + 1 in feuillets['feuillets_paralleles']:
+				print(key, "      ", liste_atome[key]['C']['nom_residu'], "     E",liste_lower[compteur], "    ",feuillets['feuillets_paralleles'][key])	
+			elif key - 1 in feuillets['feuillets_paralleles'] and compteur==0 and key + 1 not in feuillets['feuillets_paralleles']:
+				print(key, "      ", liste_atome[key]['C']['nom_residu'], "     E",liste_lower[compteur], "    ", feuillets['feuillets_paralleles'][key])
+				compteur=compteur+1
+			elif key - 1 in feuillets['feuillets_paralleles'] and key + 1 in feuillets['feuillets_paralleles']:
+				print(key, "      ", liste_atome[key]['C']['nom_residu'], "     E",liste_lower[compteur], "    ",feuillets['feuillets_paralleles'][key])
+			elif key - 1 in feuillets['feuillets_paralleles'] and key + 1 not in feuillets['feuillets_paralleles']:
+				print(key, "      ", liste_atome[key]['C']['nom_residu'], "     E",liste_lower[compteur], "    ", feuillets['feuillets_paralleles'][key])
+				compteur=compteur+1			
+		elif key in feuillets['feuillets_antiparalleles']:
+			if key - 1 in feuillets['feuillets_antiparalleles'] and compteur==0 and key + 1 in feuillets['feuillets_paralleles']:
+				print(key, "      ", liste_atome[key]['C']['nom_residu'], "     E",liste_upper[compteur])	
+			elif key - 1 in feuillets['feuillets_antiparalleles'] and compteur==0 and key + 1 not in feuillets['feuillets_paralleles']:
+				print(key, "      ", liste_atome[key]['C']['nom_residu'], "     E",liste_upper[compteur])
+				compteur=compteur+1
+			elif key - 1 in feuillets['feuillets_antiparalleles'] and key + 1 in feuillets['feuillets_antiparalleles']:
+				print(key, "      ", liste_atome[key]['C']['nom_residu'], "     E",liste_upper[compteur])
+			elif key - 1 in feuillets['feuillets_antiparalleles'] and key + 1 not in feuillets['feuillets_antiparalleles']:
+				print(key, "      ", liste_atome[key]['C']['nom_residu'], "     E",liste_upper[compteur])
+				compteur=compteur+1			
+		elif key not in helices_totales and key not in feuillets:
+			print(key, "      ", liste_atome[key]['C']['nom_residu'], "      ")
+	return 
 
 liste=[]
 #liste=parse_pdb("1uol_H.pdb")
-liste=parse_pdb("1uol_H.pdb")
+liste=analyse_pdb("1uol_H.pdb")
 Helices=calcul_helices(liste)
 Feuillets = calcul_feuillet(liste)
 affichage(liste, Helices, Feuillets)
